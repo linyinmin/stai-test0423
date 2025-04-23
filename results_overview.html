@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STAI 測驗結果總覽</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2ecc71;
+            --secondary-color: #27ae60;
+            --accent-color: #3498db;
+            --text-color: #2c3e50;
+            --light-bg: #f8f9fa;
+            --white: #ffffff;
+        }
+        body {
+            font-family: 'Noto Sans TC', Arial, sans-serif;
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            margin: 0;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            background: var(--white);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .category {
+            margin-bottom: 30px;
+        }
+        .category-title {
+            font-size: 1.3em;
+            color: var(--accent-color);
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        .record-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .record-item {
+            background: var(--light-bg);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            padding: 15px 20px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .record-item:hover {
+            background: #eafaf1;
+        }
+        .record-info {
+            flex: 1;
+        }
+        .record-detail {
+            display: none;
+            background: #f4f8fb;
+            border-radius: 8px;
+            margin-top: 10px;
+            padding: 15px 20px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+            border: 1px solid #217dbb;
+        }
+        .record-item.active + .record-detail {
+            display: block;
+        }
+        .export-btn {
+            background: var(--accent-color);
+            color: var(--white);
+            border: none;
+            border-radius: 6px;
+            padding: 8px 18px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-left: 15px;
+            transition: background 0.2s;
+        }
+        .export-btn:hover {
+            background: #217dbb;
+        }
+        .delete-btn {
+            background: #e74c3c;
+            color: var(--white);
+            border: none;
+            border-radius: 6px;
+            padding: 8px 18px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-left: 15px;
+            transition: background 0.2s;
+        }
+        .delete-btn:hover {
+            background: #c0392b;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        @media (max-width: 600px) {
+            .container { padding: 10px; }
+            .record-item, .record-detail { padding: 10px; }
+        }
+        .anxiety-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+        .anxiety-low {
+            background: #2ecc71;
+            color: #fff;
+        }
+        .anxiety-medium {
+            background: #f1c40f;
+            color: #2c3e50;
+        }
+        .anxiety-high {
+            background: #e74c3c;
+            color: #fff;
+        }
+        .tabs {
+            display: flex;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 5px;
+        }
+        
+        .tab-button {
+            padding: 10px 20px;
+            background: var(--light-bg);
+            border: none;
+            border-radius: 8px 8px 0 0;
+            margin-right: 10px;
+            margin-bottom: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .tab-button:hover {
+            background: #e0e0e0;
+        }
+        
+        .tab-button.active {
+            background: var(--accent-color);
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @media (max-width: 600px) {
+            .tabs {
+                flex-direction: column;
+                border-bottom: none;
+            }
+            
+            .tab-button {
+                width: 100%;
+                margin-right: 0;
+                margin-bottom: 5px;
+                border-radius: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>STAI 測驗結果總覽</h1>
+        <button id="backToTest" style="margin-bottom:25px;padding:10px 24px;font-size:16px;background:var(--accent-color);color:#fff;border:none;border-radius:8px;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.08);font-weight:bold;">回STAI測驗</button>
+        
+        <div id="tabs" class="tabs"></div>
+        <div id="overview"></div>
+    </div>
+    
+    <script>
+        // 取得所有紀錄
+        let results = JSON.parse(localStorage.getItem('staiResults') || '[]');
+        // 依運動項目分類
+        let categories = {};
+        results.forEach(r => {
+            if (!categories[r.sport]) categories[r.sport] = [];
+            categories[r.sport].push(r);
+        });
+        // 產生分類區塊
+        const overview = document.getElementById('overview');
+        const tabsContainer = document.getElementById('tabs');
+        
+        if (Object.keys(categories).length === 0) {
+            overview.innerHTML = '<p style="text-align:center;color:#888;">目前尚無任何測驗紀錄。</p>';
+        } else {
+            // 先建立 tab 按鈕
+            Object.keys(categories).forEach((sport, index) => {
+                const tabButton = document.createElement('button');
+                tabButton.className = `tab-button ${index === 0 ? 'active' : ''}`;
+                tabButton.textContent = sport;
+                tabButton.onclick = function() {
+                    // 移除所有 tab 的 active 狀態
+                    document.querySelectorAll('.tab-button').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.remove('active');
+                    });
+                    
+                    // 設定當前 tab 為 active
+                    this.classList.add('active');
+                    document.getElementById(`tab-${sport}`).classList.add('active');
+                };
+                tabsContainer.appendChild(tabButton);
+                
+                // 建立對應的內容區塊
+                const tabContent = document.createElement('div');
+                tabContent.id = `tab-${sport}`;
+                tabContent.className = `tab-content ${index === 0 ? 'active' : ''}`;
+                
+                const catDiv = document.createElement('div');
+                catDiv.className = 'category';
+                catDiv.innerHTML = `<div class="category-title">${sport}</div>`;
+                const ul = document.createElement('ul');
+                ul.className = 'record-list';
+                
+                categories[sport].forEach((r, idx) => {
+                    const li = document.createElement('li');
+                    li.className = 'record-item';
+                    // 分級判斷
+                    let level = '', badgeClass = '';
+                    const score = parseInt(r.totalScore);
+                    if (score <= 37) { level = '低焦慮'; badgeClass = 'anxiety-low'; }
+                    else if (score <= 44) { level = '中度焦慮'; badgeClass = 'anxiety-medium'; }
+                    else { level = '高焦慮'; badgeClass = 'anxiety-high'; }
+                    li.innerHTML = `
+                        <div class="record-info">${r.playerName}　<span style='color:#888;font-size:13px;'>${new Date(r.timestamp).toLocaleString()}</span>　<b>分數：</b>${score}<span class='anxiety-badge ${badgeClass}'>${level}</span></div>
+                        <div class="button-group">
+                            <button class='export-btn'>匯出 PDF</button>
+                            <button class='delete-btn'>刪除</button>
+                        </div>
+                    `;
+                    // 詳細內容
+                    const detail = document.createElement('div');
+                    detail.className = 'record-detail';
+                    detail.innerHTML = `
+                        <b>姓名：</b>${r.playerName}<br>
+                        <b>運動項目：</b>${r.sport}<br>
+                        <b>總分：</b>${score} <span class='anxiety-badge ${badgeClass}'>${level}</span><br>
+                        <b>心理師建議：</b><br><div style='white-space:pre-line;margin:8px 0 0 0;'>${r.notes || ''}</div><br>
+                        <b>測驗時間：</b>${new Date(r.timestamp).toLocaleString()}
+                    `;
+                    // 點擊展開/收合
+                    li.addEventListener('click', function(e) {
+                        if (e.target.classList.contains('export-btn') || e.target.classList.contains('delete-btn')) return;
+                        this.classList.toggle('active');
+                        detail.style.display = this.classList.contains('active') ? 'block' : 'none';
+                    });
+                    // 匯出 PDF
+                    li.querySelector('.export-btn').addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        exportPDF(r);
+                    });
+                    // 刪除功能
+                    li.querySelector('.delete-btn').addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        if (confirm(`確定要刪除 ${r.playerName} 的測驗結果嗎？此操作無法復原。`)) {
+                            // 從 localStorage 中刪除該筆資料
+                            let results = JSON.parse(localStorage.getItem('staiResults') || '[]');
+                            results = results.filter(item => 
+                                item.playerName !== r.playerName || 
+                                item.timestamp !== r.timestamp
+                            );
+                            localStorage.setItem('staiResults', JSON.stringify(results));
+                            
+                            // 從頁面中移除該項目
+                            li.remove();
+                            detail.remove();
+                            
+                            // 如果該運動項目沒有其他結果了，移除整個 tab
+                            if (document.querySelector(`#tab-${r.sport} .record-list`).children.length === 0) {
+                                document.querySelector(`#tab-${r.sport}`).remove();
+                                document.querySelector(`.tab-button[data-sport="${r.sport}"]`).remove();
+                                
+                                // 如果沒有任何結果了，顯示提示訊息
+                                if (document.querySelectorAll('.record-list').length === 0) {
+                                    overview.innerHTML = '<p style="text-align:center;color:#888;">目前尚無任何測驗紀錄。</p>';
+                                }
+                            }
+                        }
+                    });
+                    ul.appendChild(li);
+                    ul.appendChild(detail);
+                });
+                catDiv.appendChild(ul);
+                tabContent.appendChild(catDiv);
+                overview.appendChild(tabContent);
+            });
+        }
+        document.getElementById('backToTest').onclick = function() {
+            window.location.href = 'index.html';
+        };
+        // 匯出 PDF
+        function exportPDF(record) {
+            // 分級判斷
+            let level = '', badgeColor = '', textColor = '#fff';
+            const score = parseInt(record.totalScore);
+            if (score <= 37) { level = '低焦慮'; badgeColor = '#2ecc71'; }
+            else if (score <= 44) { level = '中度焦慮'; badgeColor = '#f1c40f'; textColor = '#2c3e50'; }
+            else { level = '高焦慮'; badgeColor = '#e74c3c'; }
+            // 建立一個隱藏的 div 作為匯出內容
+            const tempDiv = document.createElement('div');
+            tempDiv.style.padding = '24px';
+            tempDiv.style.fontFamily = 'Noto Sans TC, Arial, sans-serif';
+            tempDiv.style.width = '700px';
+            tempDiv.innerHTML = `
+                <h2 style='color:#2ecc71;text-alignleft;margin-bottom:18px;'>STAI 測驗結果</h2>
+                <p style='font-size:15px;'><b>姓名：</b>${record.playerName}</p>
+                <p style='font-size:15px;'><b>運動項目：</b>${record.sport}</p>
+                <p style='font-size:15px;'><b>總分：</b>${score} <span style='display:inline-block;padding:2px 10px;border-radius:10px;background:${badgeColor};color:${textColor};font-weight:bold;'>${level}</span></p>
+                <p style='font-size:15px;'><b>測驗時間：</b>${new Date(record.timestamp).toLocaleString()}</p>
+                <p style='font-size:15px;'><b>心理師建議：</b><br><span style='white-space:pre-line;'>${record.notes || ''}</span></p>
+                <br>
+                <div style='width:100%;overflow-x:auto;'>
+                <table border='1' cellspacing='0' cellpadding='6' style='width:100%;min-width:600px;font-size:14px;border-collapse:collapse;text-align:center;'>
+                  <tr style='background:#2ecc71;color:#fff;'><th style='width:100px;'>STAI 分數區間</th><th style='width:100px;'>焦慮程度</th><th>說明</th></tr>
+                  <tr style='background:rgba(46,204,113,0.08);'><td>20–37</td><td style='color:#2ecc71;font-weight:bold;'>低焦慮</td><td>正常範圍，日常無明顯焦慮困擾</td></tr>
+                  <tr style='background:rgba(241,196,15,0.08);'><td>38–44</td><td style='color:#f1c40f;font-weight:bold;'>中度焦慮</td><td>有部分焦慮症狀，需觀察或適度調整</td></tr>
+                  <tr style='background:rgba(231,76,60,0.08);'><td>45–80</td><td style='color:#e74c3c;font-weight:bold;'>高焦慮</td><td>明顯焦慮狀態，建議進行介入與追蹤</td></tr>
+                </table>
+                </div>
+                <div style='margin-top:20px;padding:15px;background:#f8f9fa;border-radius:8px;'>
+                    <h3 style='color:#2c3e50;margin-top:0;'>建議訓練方向：</h3>
+                    <p style='font-size:14px;line-height:1.6;'>
+                        • 根據 STAI 評估出的焦慮程度進行分組：<br>
+                        &nbsp;&nbsp;&nbsp;o 高焦慮組 → 導入 SMR 神經回饋訓練或呼吸調節訓練。<br>
+                        &nbsp;&nbsp;&nbsp;o 低焦慮組 → 持續強化專注與動作穩定性。
+                    </p>
+                </div>
+                <div style='height:40px;'></div>
+            `;
+            document.body.appendChild(tempDiv);
+            html2pdf().set({
+                margin: [20, 10, 30, 10],
+                filename: `STAI_${record.playerName}_${record.sport}.pdf`,
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            }).from(tempDiv).save().then(() => {
+                document.body.removeChild(tempDiv);
+            });
+        }
+    </script>
+</body>
+</html> 
